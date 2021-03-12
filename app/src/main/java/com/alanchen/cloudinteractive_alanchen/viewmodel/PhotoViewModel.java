@@ -44,7 +44,7 @@ public class PhotoViewModel extends ViewModel {
         Glide.with(imageView.getContext())
             .asBitmap()
             .load(url)
-            .apply(new RequestOptions().placeholder(R.drawable.test))
+            .apply(new RequestOptions().placeholder(R.drawable.nophoto))
             .into(imageView);
     }
 

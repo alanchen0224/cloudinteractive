@@ -5,7 +5,10 @@ import android.arch.lifecycle.ViewModel;
 import android.content.Context;
 import android.databinding.BindingAdapter;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.widget.ImageView;
+
+import com.alanchen.cloudinteractive_alanchen.R;
 import com.alanchen.cloudinteractive_alanchen.model.Preview;
 
 public class PreviewViewModel extends ViewModel {
@@ -24,7 +27,10 @@ public class PreviewViewModel extends ViewModel {
 
     @BindingAdapter("android:image")
     public static void loadImage(ImageView imageView, byte[] bytes) {
-        imageView.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
+        if ( bytes != null )
+            imageView.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
+        else
+            imageView.setImageResource(R.drawable.nophoto);
     }
 
     public void goBack() {

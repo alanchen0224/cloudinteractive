@@ -20,7 +20,7 @@ public class PreviewActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         id = getIntent().getIntExtra("id", -1);
-        title = getIntent().getStringExtra("title");
+        title = getIntent().getStringExtra("title") ;
         bytes = getIntent().getByteArrayExtra("bytes");
 
         ActivityPreViewBinding activityPreViewBinding = DataBindingUtil.setContentView(this,R.layout.activity_pre_view);
