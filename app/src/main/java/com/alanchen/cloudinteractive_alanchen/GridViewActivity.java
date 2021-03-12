@@ -2,89 +2,51 @@ package com.alanchen.cloudinteractive_alanchen;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.arch.lifecycle.Observer;
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
-import android.widget.Toast;
 
-import com.alanchen.cloudinteractive_alanchen.adapter.PhotoAdapter;
+import com.alanchen.cloudinteractive_alanchen.adapter.PhotoAdapter2;
 import com.alanchen.cloudinteractive_alanchen.model.Photo;
-import com.alanchen.cloudinteractive_alanchen.repository.PhotoInfoRepository;
-import com.alanchen.cloudinteractive_alanchen.service.PhotoInfoAPIService;
 import com.alanchen.cloudinteractive_alanchen.viewmodel.PhotoViewModel;
 
-import java.io.ByteArrayOutputStream;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-
-public class GridViewActivity extends AppCompatActivity implements PhotoNavigator{
+public class GridViewActivity extends AppCompatActivity {
     public static String TAG = "System.out";
+    public static HashMap<Integer, String> tempPathMap = new HashMap<>();
     Dialog progressDialog;
-    PhotoInfoAPIService photoInfoAPIService;
-    ArrayList<Photo> photoArrayList;
-
     RecyclerView photoInfoRV;
-    List<PhotoViewModel> data = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_grid_view);
-
+        showProgressDialog();
         photoInfoRV = findViewById(R.id.photoInfoRV);
         GridLayoutManager gridLayoutManager = new GridLayoutManager(this,4);
         photoInfoRV.setLayoutManager(gridLayoutManager);
 
-        init();
-    }
+        PhotoViewModel photoViewModel = ViewModelProviders.of(this).get(PhotoViewModel.class);
 
-    void init(){
-        showProgressDialog();
-        getPhotoDatas();
-    }
-
-    void getPhotoDatas(){
-
-        photoInfoAPIService = PhotoInfoRepository.getInstance().getAPI();
-        Call<ArrayList<Photo>> call = photoInfoAPIService.getPhotosInfo();
-        call.enqueue(new Callback<ArrayList<Photo>>() {
+        photoViewModel.getPhotos().observe(this, new Observer<List<Photo>>() {
             @Override
-            public void onResponse(Call<ArrayList<Photo>> call, Response<ArrayList<Photo>> response) {
-                Log.d(TAG, "onResponse: " + response);
-                photoArrayList = response.body();
-                generateView();
-            }
-            @Override
-            public void onFailure(Call<ArrayList<Photo>> call, Throwable t) {
-                Log.d(TAG, "onFailure: " + t.getMessage());
-                Toast.makeText(getApplicationContext(),t.getMessage(),Toast.LENGTH_SHORT);
+            public void onChanged(@Nullable List<Photo> photos) {
+                PhotoAdapter2 photoAdapter2 = new PhotoAdapter2(GridViewActivity.this, photos, onItemClick);
+                photoInfoRV.setAdapter(photoAdapter2);
+                closeProgressDialog();
             }
         });
-    }
 
-    void generateView() {
-        for(int i=0; i<photoArrayList.size(); i++){
-            PhotoViewModel photoViewModel = new PhotoViewModel(photoArrayList.get(i));
-            photoViewModel.setPhotoNavigator(this);
-            data.add(photoViewModel);
-        }
-        PhotoAdapter photoAdapter = new PhotoAdapter(data,GridViewActivity.this);
-        photoInfoRV.setAdapter(photoAdapter);
-        closeProgressDialog();
     }
 
     private void showProgressDialog() {
@@ -102,20 +64,14 @@ public class GridViewActivity extends AppCompatActivity implements PhotoNavigato
         }
     }
 
-    @Override
-    public void onItemClick(View view, PhotoViewModel photoViewModel) {
-
-        RelativeLayout relativeLayout = (RelativeLayout) view;
-        ImageView imageView = relativeLayout.findViewById(R.id.pImage);
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        ((BitmapDrawable)imageView.getDrawable()).getBitmap().compress(Bitmap.CompressFormat.PNG, 100, stream);
-        byte[] bytes = stream.toByteArray();
-
-        Intent it = new Intent();
-        it.setClassName(this,"com.alanchen.cloudinteractive_alanchen.PreviewActivity");
-        it.putExtra("id", photoViewModel.id);
-        it.putExtra("title", photoViewModel.title);
-        it.putExtra("bytes", bytes);
-        startActivity(it);
-    }
+    private  PhotoAdapter2.OnItemClick onItemClick = new PhotoAdapter2.OnItemClick() {
+        @Override
+        public void onClick(ImageView imgView, Photo photo) {
+            Intent it = new Intent(GridViewActivity.this, PreviewActivity.class);
+            it.putExtra("id", photo.id);
+            it.putExtra("title", photo.title);
+            it.putExtra("thumbnailUrl", photo.thumbnailUrl);
+            startActivity(it);
+        }
+    };
 }

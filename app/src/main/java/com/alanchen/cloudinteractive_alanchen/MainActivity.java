@@ -6,12 +6,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
-import com.alanchen.cloudinteractive_alanchen.service.PhotoInfoAPIService;
-
 
 public class MainActivity extends AppCompatActivity {
-    public static String TAG = "System.out";
-    PhotoInfoAPIService photoInfoAPIService;
 
     Button btn;
     @Override
