@@ -7,6 +7,7 @@ import android.support.v7.app.AppCompatActivity;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 
 import com.alanchen.cloudinteractive_alanchen.databinding.ActivityPreViewBinding;
 import com.alanchen.cloudinteractive_alanchen.model.Preview;
@@ -15,12 +16,6 @@ import com.alanchen.cloudinteractive_alanchen.utils.Downloader;
 import com.alanchen.cloudinteractive_alanchen.viewmodel.PreviewViewModel;
 
 import java.io.File;
-
-import okhttp3.ResponseBody;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import retrofit2.Retrofit;
 
 import static com.alanchen.cloudinteractive_alanchen.GridViewActivity.TAG;
 import static com.alanchen.cloudinteractive_alanchen.GridViewActivity.tempPathMap;
@@ -37,7 +32,7 @@ public class PreviewActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         id = getIntent().getIntExtra("id", -1);
-        title = getIntent().getStringExtra("title") ;
+        title = getIntent().getStringExtra("title");
         thumbnailUrl = getIntent().getStringExtra("thumbnailUrl") ;
 
         if( Downloader.checkIfCacheImg(id) ) {
@@ -45,46 +40,35 @@ public class PreviewActivity extends AppCompatActivity {
             Bitmap bitmap = BitmapFactory.decodeFile(file.getPath());
             generateView(bitmap);
         }else
-            loadImage(thumbnailUrl);
+            Downloader.loadImage(id, thumbnailUrl, loadImageCallBack);
 
     }
 
     void generateView(Bitmap bitmap) {
         ActivityPreViewBinding activityPreViewBinding = DataBindingUtil.setContentView(this,R.layout.activity_pre_view);
-        PreviewViewModel previewViewModel = new PreviewViewModel(this, new Preview(id, title, bitmap));
+        PreviewViewModel previewViewModel = new PreviewViewModel(new Preview(id, title, bitmap));
+        previewViewModel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(!PreviewActivity.this.isDestroyed()) {
+                    finish();
+                }
+            }
+        });
         activityPreViewBinding.setViewmodel(previewViewModel);
         activityPreViewBinding.executePendingBindings();
     }
 
-    void loadImage (String thumbnailUrl) {
-        Retrofit retrofit = new Retrofit.Builder().baseUrl("https://via.placeholder.com/150/35cedf/").build();
-        PhotoImgAPIService photoImgAPIService = retrofit.create(PhotoImgAPIService.class);
-        Call<ResponseBody> call = photoImgAPIService.getPhotoImg(thumbnailUrl);
-        call.enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                try {
-                    bytes = response.body().bytes();
-                }catch (Exception e) {
-                    e.printStackTrace();
-                }finally {
-                    if( bytes != null)
-                        generateView(BitmapFactory.decodeByteArray(bytes,0,bytes.length));
-                    else
-                        generateView(null);
-                }
-            }
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                Log.e(TAG, "onFailure "+t.getMessage());
+    private final Downloader.LoadImageCallBack loadImageCallBack = new Downloader.LoadImageCallBack() {
+        @Override
+        public void onLoadedImage(int id, byte[] bytes) {
+            if( bytes != null) {
+                Bitmap bitmap = BitmapFactory.decodeByteArray(bytes,0,bytes.length);
+                generateView(bitmap);
+            }else {
                 generateView(null);
             }
-        });
-
-    }
-
-
-
-
+        }
+    };
 
 }

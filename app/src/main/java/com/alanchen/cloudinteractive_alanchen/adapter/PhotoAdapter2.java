@@ -5,7 +5,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,6 +21,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import okhttp3.ResponseBody;
 import retrofit2.Call;
@@ -34,6 +35,7 @@ import static com.alanchen.cloudinteractive_alanchen.GridViewActivity.tempPathMa
 
 public class PhotoAdapter2 extends RecyclerView.Adapter<PhotoAdapter2.PhotoViewHolder>{
 
+    private final ExecutorService mExecutorService;
     Context context;
     List<Photo> photoList;
     OnItemClick onItemClick;
@@ -42,6 +44,7 @@ public class PhotoAdapter2 extends RecyclerView.Adapter<PhotoAdapter2.PhotoViewH
         this.context = context;
         this.photoList = photoList;
         this.onItemClick = onItemClick;
+        this.mExecutorService = Executors.newCachedThreadPool();
     }
 
     @NonNull
@@ -56,11 +59,23 @@ public class PhotoAdapter2 extends RecyclerView.Adapter<PhotoAdapter2.PhotoViewH
         final Photo photo = photoList.get(position);
 
         if( Downloader.checkIfCacheImg(photo.id) ) {
-            File file = new File(context.getCacheDir(), "/"+ tempPathMap.get(photo.id));
-            Bitmap bitmap = BitmapFactory.decodeFile(file.getPath());
-            holder.pImage.setImageBitmap(bitmap);
-        }else
-            loadImage(holder, photo);
+            this.mExecutorService.execute(new Runnable() {
+                @Override
+                public void run() {
+                    File file = new File(context.getCacheDir(), "/"+ tempPathMap.get(photo.id));
+                    final Bitmap bitmap = BitmapFactory.decodeFile(file.getPath());
+                    holder.pImage.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            holder.pImage.setImageBitmap(bitmap);
+                        }
+                    });
+                }
+            });
+        }else{
+            holder.pImage.setImageResource(android.R.color.transparent);
+            Downloader.loadImage(photo.id, photo.thumbnailUrl, holder.loadImageCallBack);
+        }
 
         holder.pId.setText(String.valueOf(photo.getId()));
         holder.pTitle.setText(photo.getTitle());
@@ -87,36 +102,26 @@ public class PhotoAdapter2 extends RecyclerView.Adapter<PhotoAdapter2.PhotoViewH
                 @Override
                 public void onClick(View view) {
                     if( onItemClick != null) {
-                        onItemClick.onClick(pImage, photoList.get(PhotoViewHolder.this.getAdapterPosition()));
+                        onItemClick.onClick(pImage, photoList.get(PhotoViewHolder.this.getLayoutPosition()));
                     }
                 }
             });
         }
-    }
 
-    void loadImage (final PhotoAdapter2.PhotoViewHolder holder, final Photo photo) {
-        Retrofit retrofit = new Retrofit.Builder().baseUrl("https://via.placeholder.com/150/35cedf/").build();
-        PhotoImgAPIService photoImgAPIService = retrofit.create(PhotoImgAPIService.class);
-        Call<ResponseBody> call = photoImgAPIService.getPhotoImg(photo.thumbnailUrl);
-        call.enqueue(new Callback<ResponseBody>() {
+        public Downloader.LoadImageCallBack loadImageCallBack = new Downloader.LoadImageCallBack() {
             @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                if( response.isSuccessful()) {
-                    Log.d(TAG, "server contacted ");
-                    try {
-                        byte[] bytes = response.body().bytes();
-                        holder.pImage.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
-                        saveToCache(bytes, photo.id);
-                    }catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                } else Log.d(TAG, "server contact failed");
+            public void onLoadedImage(int id, byte[] bytes) {
+                if(PhotoViewHolder.this.getLayoutPosition() < 0){
+                    return;
+                }else if (photoList.get(PhotoViewHolder.this.getLayoutPosition()) == null) {
+                    return;
+                }else if ( photoList.get(PhotoViewHolder.this.getLayoutPosition()).id != id ){
+                    return;
+                }
+                pImage.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
+                saveToCache(bytes, id);
             }
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                Log.e(TAG, "onFailure "+t.getMessage());
-            }
-        });
+        };
     }
 
     void saveToCache(byte[] bytes, int id) {
